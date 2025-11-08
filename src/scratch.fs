@@ -3,7 +3,7 @@
 \       "/home/kolay/prog/gforth/src/scratch.fs" included
 \     ;
 
-: r "/home/kolay/prog/gforth/src/scratch.fs" included ;
+: :r "/home/kolay/prog/gforth/src/scratch.fs" included ;
 
 \ 42 constant star-char
 \    : stars 0 do star-char emit loop ;
@@ -38,7 +38,6 @@ end-code
 \ : thanks ." , cпасибо за " ;
 \ : message cr gifter thanks gift ." ." cr ;
 
-
 : minus-ten -10 + ;
 
 
@@ -59,4 +58,15 @@ end-code
   swap
   / ;
 
+
+variable date
+variable month
+variable year
+
+: !date year ! month ! date ! ;
+
+
+variable eggs
+: reset 0 eggs ! ;
+: egg 1 eggs +! ;
 
