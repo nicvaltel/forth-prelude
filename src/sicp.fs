@@ -98,23 +98,25 @@
 ;
 
 
-: f-sqrt-iter ( guess x -- y ) recursive
-  \ ( y = sqrt (x) usage: 1e0 2e0  f-sqrt-iter f. )
-  f2dup \ guess x guess x
-  fswap \ guess x x guess
+: f-sqrt-iter ( residLevel guess x -- y ) recursive
+  \ ( y = sqrt (x) usage: 1e-6 1e0 2e0  f-sqrt-iter f. )
+  f2dup \ residLevel guess x guess x
+  fswap \ residLevel guess x x guess
   
-  fdup \ guess x x guess guess
-  f-sqrt-iter-sub-res \ guess x |abs (x - guess^2) |
+  fdup \ residLevel guess x x guess guess
+  f-sqrt-iter-sub-res \ residLevel guess x |abs (x - guess^2)|
+  ffourth \ residLevel guess x |abs (x - guess^2)| residLevel
 
-  1e-6 \ guess x |abs (x - guess^2) | 1e-6
-  f< \ guess x (|abs (guess^2 - x) | < residLevel)
-  if \ guess x
-  fdrop \ clear x in stack
-  else \ guess x
-  ftuck \ x guess x
-  f-sqrt-iter-sub-new-guess \ x newGuess
-  fswap \ newGuess x
-  f-sqrt-iter
+  f< \ residLevel guess x (|abs (guess^2 - x) | < residLevel)
+  if \ residLevel guess x
+    fdrop \ residLevel guess
+    fswap \ guess residLevel
+    fdrop \ guess
+  else \ residLevel guess x
+    ftuck \ residLevel x guess x
+    f-sqrt-iter-sub-new-guess \ residLevel x newGuess
+    fswap \ residLevel newGuess x
+    f-sqrt-iter
   then
 ;
 
