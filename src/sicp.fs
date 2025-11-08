@@ -89,11 +89,17 @@
   f*
 ;
 
+: faverage ( r1 r2 -- rAverage )
+  \ rAverage = (r1 + r2) / 2
+  f+
+  2e0
+  f/
+;
+
 : f-sqrt-iter-sub-new-guess ( guess x -- newGuess )
   fover \ guess x guess
   f/ \ guess x/guess
-  f+ \ (x + x/guess)
-  2e0 f/ \ (x + x/guess)/2
+  faverage \ newGuess = (guess + x/guess)/2
 ;
 
 : f-sqrt-iter-sub-good-enough? ( residLevel guess x -- bool )
@@ -120,6 +126,31 @@
     f-sqrt-iter
   then
 ;
+
+
+
+: f-solver-sqrt-checker ( guess x -- bool )
+  1e-6 \ guess x residLevel
+  f-rot \ residLevel guess x
+  f-sqrt-iter-sub-good-enough?
+;
+
+
+: f-solver ( xt guess x -- y ) recursive
+  \ ( checker guess x) y = sqrt(x) USAGE: ' f-solver-sqrt-checker 1e0 2e0 f-solver
+  dup \ checker checker |F guess x	   
+  f2dup \ checker checker |F guess x guess x
+  EXECUTE \ checker bool |F guess x
+  if \ checker |F guess x
+    fdrop \ checker |F guess
+    drop \ |F guess
+  else \ checker |F guess x
+    ftuck \ checker |F x guess x
+    f-sqrt-iter-sub-new-guess \ checker |F x newGuess
+    fswap \ checker |F newGuess x
+    f-solver
+  then
+;  	   
 
 
 \ ================= Test functions =============
@@ -167,4 +198,16 @@
   -rot \ 1 2 3 1 2 |R 3
   r> \ 1 2 3 1 2 3
 ;
+
+
+: say-hello ." Hello!" cr ;
+: say-bye ." Bye!" cr ;
+
+: do-twice ( xt -- )
+  \ usage: ' say-hello do-twice 
+  dup
+  EXECUTE
+  EXECUTE
+;
+
 
