@@ -77,37 +77,38 @@
   \ frot \ x y y x -- x y x y
 ;
 
+
 : f3dup ( r1 r2 r3 -- r1 r2 r3 r1 r2 r3 )
-  fover ( r1 r2 r3 -- r1 r2 r3 r2)
-  fover ( r1 r2 r3 r2 -- r1 r2 r3 r2 r3)
+  fthird \ 1 2 3 1
+  fthird \ 1 2 3 1 2
+  fthird \ 1 2 3 1 2 3
 ;
-  
 
+: fsquare ( r -- r )
+  fdup
+  f*
+;
 
-: f-sqrt-iter-sub-new-guess ( guess x -- c )
+: f-sqrt-iter-sub-new-guess ( guess x -- newGuess )
   fover \ guess x guess
   f/ \ guess x/guess
   f+ \ (x + x/guess)
   2e0 f/ \ (x + x/guess)/2
 ;
 
-: f-sqrt-iter-sub-res ( x guess -- |x - guess^2| )
-  f* \ x guess^2
-  f- \ x - guess^2
-  fabs
+: f-sqrt-iter-sub-good-enough? ( residLevel guess x -- bool )
+  fswap \ residLevel x guess
+  fsquare \ residLevel x guess^2
+  f- \ residLevel (x - guess^2)
+  fabs \ residLevel |x - guess^2|
+  f> \ bool = residLevel > |x - guess^2|
 ;
 
 
 : f-sqrt-iter ( residLevel guess x -- y ) recursive
   \ ( y = sqrt (x) usage: 1e-6 1e0 2e0  f-sqrt-iter f. )
-  f2dup \ residLevel guess x guess x
-  fswap \ residLevel guess x x guess
-  
-  fdup \ residLevel guess x x guess guess
-  f-sqrt-iter-sub-res \ residLevel guess x |abs (x - guess^2)|
-  ffourth \ residLevel guess x |abs (x - guess^2)| residLevel
-
-  f< \ residLevel guess x (|abs (guess^2 - x) | < residLevel)
+  f3dup \ residLevel guess x residLevel guess x
+  f-sqrt-iter-sub-good-enough? \ residLevel guess x bool
   if \ residLevel guess x
     fdrop \ residLevel guess
     fswap \ guess residLevel
@@ -120,6 +121,9 @@
   then
 ;
 
+
+\ ================= Test functions =============
+
 : my-req ( x -- x ) recursive
   dup
   1 <
@@ -130,5 +134,37 @@
   1 -
   my-req
   then
+;
+
+
+
+
+
+: my-dup ( w -- w w )
+  >r  \ _ |R w
+  r@ \ w |R w
+  r> \ w w 
+;
+
+: my-2dup ( w1 w2 -- w1 w2 w1 w2 )
+  >r \ 1 |R 2
+  >r \ _ |R 2 1
+  r@ \ 1 |R 2 1
+  r> \ 1 1 |R 2
+  r@ \ 1 1 2 |R 2
+  swap \ 1 2 1 |R 2
+  r> \ 1 2 1 2
+;
+
+: my-3dup ( w1 w2 w3 -- w1 w2 w3 w1 w2 w3 )
+  >r >r >r \ _ |R 3 2 1
+  r@ \ 1 |R 3 2 1
+  r> \ 1 1 |R 3 2
+  r@ \ 1 1 2 |R 3 2
+  swap \ 1 2 1 |R 3 2
+  r> \ 1 2 1 2 |R 3
+  r@ \ 1 2 1 2 3 |R 3
+  -rot \ 1 2 3 1 2 |R 3
+  r> \ 1 2 3 1 2 3
 ;
 
