@@ -1,0 +1,60 @@
+\ : editor ( -- )
+\       "emacs /home/kolay/prog/gforth/src/scratch.fs" system
+\       "/home/kolay/prog/gforth/src/scratch.fs" included
+\     ;
+
+: r "/home/kolay/prog/gforth/src/scratch.fs" included ;
+
+\ 42 constant star-char
+\    : stars 0 do star-char emit loop ;
+\    : starss ( n m -- )
+\    ( cr 10 10 starss )
+\    0 do dup stars cr loop
+\    drop ;
+
+: xs ( a b -- )
+  ( cr 0 5 xs)
+  0 do 1 + dup . cr loop
+  drop ;
+
+abi-code my+  ( n1 n2 -- n3 )
+  \ SP passed in di, returned in ax,  address of FP passed in si
+  8 di d) ax lea        \ compute new sp in result reg
+  di )    dx mov        \ get old tos
+  dx    ax ) add        \ add to new tos
+  ret
+end-code
+
+
+: star 42 emit ;
+: stars 0 do star loop ;
+: margin cr 30 spaces ;
+: blip margin star ;
+: bar margin 5 stars ;
+: F bar blip bar blip blip cr ;
+
+\ : gift ." подставку для книг" ;
+\ : gifter ." Дорогая Марья" ;
+\ : thanks ." , cпасибо за " ;
+\ : message cr gifter thanks gift ." ." cr ;
+
+
+o: minus-ten -10 + ;
+
+
+: inv3 ( a b c -- c b a )
+  swap ( a b c -- a c b )
+  rot ( a c b -- c b a ) ;
+
+: my-over ( a b -- a b a )
+  swap ( a b -- b a )
+  dup ( b a -- b a a )
+  rot ( b a a -- a a b )
+  swap ( a a b -- a b a ) ;
+
+: ex2b3 ( n - n )
+  ( n + 1 / n )
+  dup
+  1 +
+  swap
+  / ;

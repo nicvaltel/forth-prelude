@@ -1,0 +1,131 @@
+https://stackoverflow.com/questions/48837115/does-gnu-forth-have-an-editor
+
+Yes, gForth supports an internal (BLOCK) editor. Start gforth
+
+    type: use blocked.fb (a demo page)
+    type: 1 load
+    type editor
+
+    words will show the editor words,
+
+    s b n bx nx qx dl il f y r d i t 'par 'line 'rest c a m  ok
+
+    type 0 l to list screen 0 which describes the editor,
+
+    Screen 0 not modified     
+     0 \\ some comments on this simple editor                 29aug95py
+     1 m marks current position        a goes to marked position       
+     2 c moves cursor by n chars       t goes to line n and inserts    
+     3 i inserts                       d deletes marked area           
+     4 r replaces marked area          f search and mark               
+     5 il insert a line                dl delete a line                
+     6 qx gives a quick index          nx gives next index             
+     7 bx gives previous index                                         
+     8 n goes to next screen           b goes to previous screen       
+     9 l goes to screen n              v goes to current screen        
+    10 s searches until screen n       y yank deleted string           
+    11                                                                 
+    12 Syntax and implementation style a la PolyFORTH                  
+    13 If you don't like it, write a block editor mode for Emacs!      
+    14                                                                 
+    15                                                                 
+     ok
+
+
+
+===========================
+
+
+Creating your own block file
+
+To create your own new block file myblocks.fb
+
+    type: use blocked.fb
+    type: 1 load
+    type editor
+
+Then
+
+    type use myblocks.fb
+    1 load will show BLOCK #1 (lines 0 till 15. 16 Lines of 64 characters each)
+    1 t will highlight line 1
+    Type i this is text to [i]nsert into line 1
+    After the current BLOCK is edited type flush in order to write BLOCK #1 to the file myblocks.fb
+
+
+
+
+=====================
+
+: editor ( -- )
+      "emacs /home/kolay/prog/gforth/src/scratch.fs" system
+      "/home/kolay/prog/gforth/src/scratch.fs" included
+    ;
+
+
+
+В
+Gforth, который является реализацией языка Forth, нет встроенного многострочного редактора, такого как в полноценных интегрированных средах разработки (IDE). Вместо этого, для написания и редактирования кода используются два основных подхода: 
+
+    Внешний редактор: Самый распространенный способ, при котором вы используете любой удобный вам редактор (Vim, Emacs, Nano и т. д.) для создания файла с кодом, а затем загружаете его в Gforth.
+    Режим "блоков" (Blocks): Устаревший, но все еще доступный способ, при котором код хранится в специальных "блочных" файлах, а Gforth использует встроенные средства для их редактирования. 
+
+Настройка внешнего редактора (рекомендуемый способ)
+Это наиболее удобный и гибкий метод. Вам нужно всего лишь создать файл с кодом и написать специальное "слово" в Gforth для его запуска.
+
+    Создайте файл. В своем любимом текстовом редакторе создайте файл с кодом Forth (например, mycode.fs).
+    Запустите Gforth. В терминале запустите Gforth.
+    Создайте слово для редактирования и загрузки. Для удобства можно определить слово, которое будет открывать внешний редактор и автоматически загружать файл после сохранения. Например, для редактора vim это будет выглядеть так:
+    forth
+
+    : scratch ( -- )
+      "vim /tmp/scratch.fs" system
+      "/tmp/scratch.fs" included
+    ;
+
+    Используйте код с осторожностью.
+
+    "vim /tmp/scratch.fs" system — вызывает команду операционной системы vim /tmp/scratch.fs, которая открывает редактор Vim с файлом scratch.fs.
+    "/tmp/scratch.fs" included — после закрытия редактора загружает содержимое этого файла в Gforth.
+
+Использование. Теперь, когда вы хотите отредактировать код, просто наберите в консоли Gforth:
+forth
+
+scratch
+
+Используйте код с осторожностью.
+Настройка для другого редактора. Если вы используете другой редактор, просто замените "vim /tmp/scratch.fs" на соответствующую команду. Например, для nano:
+forth
+
+"nano /tmp/scratch.fs" system
+
+Используйте код с осторожностью.
+ 
+
+Использование блочного редактора (традиционный способ)
+Если вы хотите работать с блоками, следуйте этой инструкции: 
+
+    Загрузите редактор блоков. Gforth поставляется с файлом blocked.fb, который содержит простой редактор блоков. Загрузите его, используя команду use:
+    forth
+
+    use blocked.fb
+
+    Используйте код с осторожностью.
+
+Создайте файл блоков. Укажите файл, который будет использоваться как "диск" с блоками.
+forth
+
+"forth.disk" open-blocks
+
+Используйте код с осторожностью.
+Переключите словарь. Перейдите в словарь EDITOR, чтобы использовать команды редактора блоков.
+forth
+
+editor
+
+Используйте код с осторожностью.
+Начните редактирование. Теперь вы можете использовать команды, такие как 1 list для просмотра первого блока или 1 edit для его редактирования.
+
+Из-за своей сложности и архаичности, использование внешнего редактора является гораздо более предпочтительным методом для современных задач.
+
+
