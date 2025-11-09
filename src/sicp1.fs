@@ -1,11 +1,9 @@
-: :r "/home/kolay/prog/gforth/src/sicp.fs" included ;
-
+: :r "/home/kolay/prog/gforth/src/sicp1.fs" included ;
 
 : square ( n -- n )
   dup
   *
 ;
-
 
 : sum-of-squares ( x y -- z )
   ( z = x^2 + y^2 )
@@ -13,41 +11,6 @@
   swap
   square
   +
-;
-
-: func1 ( x -- f )
-  \ ( f = [x + 1]^2 + [2 * x]^2 )
-  dup
-  1 +
-  swap
-  2 *
-  sum-of-squares
-;
-
-\ 0 = False -1 = True; any not zero number = True
-: my-abs ( x -- |x| )
-  dup
-  0 >
-  if
-  else negate
-  then
-;
-
-: my-geq-stupid ( x y -- boolean )
-  -
-  dup
-  0 >
-  swap
-  0 =
-  or
-;
-
-
-\ invert is logical not: -1 invert = 0 ; 0 invert = -1
-: my-geq-smart ( x y -- boolean )
-  -
-  0 <
-  invert
 ;
 
 : 3dup ( w1 w2 w3 -- w1 w2 w3 w1 w2 w3 )
@@ -96,46 +59,13 @@
   f/
 ;
 
-: f-sqrt-iter-sub-new-guess ( guess x -- newGuess )
-  fover \ guess x guess
-  f/ \ guess x/guess
-  faverage \ newGuess = (guess + x/guess)/2
-;
 
-: f-sqrt-iter-sub-good-enough? ( residLevel guess x -- bool )
-  fswap \ residLevel x guess
-  fsquare \ residLevel x guess^2
-  f- \ residLevel (x - guess^2)
-  fabs \ residLevel |x - guess^2|
-  f> \ bool = residLevel > |x - guess^2|
-;
+\ ============ F-SOLVER ============ \
 
-
-: f-sqrt-iter ( residLevel guess x -- y ) recursive
-  \ ( y = sqrt (x) usage: 1e-6 1e0 2e0  f-sqrt-iter f. )
-  f3dup \ residLevel guess x residLevel guess x
-  f-sqrt-iter-sub-good-enough? \ residLevel guess x bool
-  if \ residLevel guess x
-    fdrop \ residLevel guess
-    fswap \ guess residLevel
-    fdrop \ guess
-  else \ residLevel guess x
-    ftuck \ residLevel x guess x
-    f-sqrt-iter-sub-new-guess \ residLevel x newGuess
-    fswap \ residLevel newGuess x
-    f-sqrt-iter
-  then
-;
-
-: f-solver-sqrt-checker ( guess x -- bool )
-  1e-6 \ guess x residLevel
-  f-rot \ residLevel guess x
-  f-sqrt-iter-sub-good-enough?
-;
 
 
 : f-solver ( xt xt guess x -- y ) recursive
-  \ ( checker improver guess x) y = sqrt(x) USAGE: ' f-solver-sqrt-checker ' f-sqrt-iter-sub-new-guess 1e0 2e0 f-solver f.
+  \ ( checker improver guess x) y = sqrt(x) USAGE: ' f-solver-sqrt-checker ' f-sqrt-improver 1e0 2e0 f-solver f.
   over \ checker improver checker |F guess x
   f2dup \ checker improver checker improver |F guess x guess x
   EXECUTE \ checker improver bool |F guess x
@@ -149,8 +79,30 @@
     fswap \ checker improver |F newGuess x
     f-solver
   then
-;  	   
+;  
 
+
+\ ============ Square root ============ \
+
+: f-sqrt-improver ( guess x -- newGuess )
+  fover \ guess x guess
+  f/ \ guess x/guess
+  faverage \ newGuess = (guess + x/guess)/2
+;
+
+: f-sqrt-good-enough? ( residLevel guess x -- bool )
+  fswap \ residLevel x guess
+  fsquare \ residLevel x guess^2
+  f- \ residLevel (x - guess^2)
+  fabs \ residLevel |x - guess^2|
+  f> \ bool = residLevel > |x - guess^2|
+;
+
+: f-solver-sqrt-checker ( guess x -- bool )
+  1e-6 \ guess x residLevel
+  f-rot \ residLevel guess x
+  f-sqrt-good-enough?
+;
 
 \ ================= Test functions =============
 
