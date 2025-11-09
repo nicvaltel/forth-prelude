@@ -52,6 +52,18 @@
   f*
 ;
 
+: f-n-pow ( r w -- r )
+  \ ( x n -- x^n)
+  1 - \ n = n-1
+  fdup   \ |F x x
+  0 do  \ |F x x^(n-1)
+    fover \ |F x x^(n-1) x
+    f*  \ |F x x^n    
+  loop
+  fswap \ x^n x
+  fdrop \ x^n
+;
+
 : faverage ( r1 r2 -- rAverage )
   \ rAverage = (r1 + r2) / 2
   f+
@@ -65,7 +77,9 @@
 
 
 : f-solver ( xt xt guess x -- y ) recursive
-  \ ( checker improver guess x) y = sqrt(x) USAGE: ' f-solver-sqrt-checker ' f-sqrt-improver 1e0 2e0 f-solver f.
+	   \ ( checker improver guess x) y = sqrt(x) USAGE: ' f-sqrt-checker ' f-sqrt-improver 1e0 2e0 f-solver f.
+	   \ UGAGE for cube root: ' f-3h-root-checker ' f-3th-root-improver 1e0 2e0 f-solver f.
+	   \ USAGE 1) 1e-10  make-f-sqrt-checker checker 2) ' checker ' f-sqrt-improver 1e0 2e0 f-solver f.  !!! WARNING ": checker 1e-6 make-f-sqrt-checker ;" Is incorrect using
   over \ checker improver checker |F guess x
   f2dup \ checker improver checker improver |F guess x guess x
   EXECUTE \ checker improver bool |F guess x
@@ -98,13 +112,55 @@
   f> \ bool = residLevel > |x - guess^2|
 ;
 
-: f-solver-sqrt-checker ( guess x -- bool )
+: f-sqrt-checker ( guess x -- bool )
   1e-6 \ guess x residLevel
   f-rot \ residLevel guess x
   f-sqrt-good-enough?
 ;
 
-\ ================= Test functions =============
+: make-f-sqrt-checker ( residLevel -- xt )
+  \ USAGE: 1e-10  make-f-sqrt-checker checker
+  \ !!! INCORRECT USAGE ": sqrt-checker-1e-6 1e-6 make-f-sqrt-checker ;" \ stack will be changed after this definition
+  
+  CREATE f, \ CREATE создаёт новое слово (например, sqrt-checker-1e-6). \ , записывает текущее residLevel в память по адресу HERE. (compile-time operations)
+  DOES> ( guess x -- bool ) \ Когда это слово потом вызовут, DOES> получает этот адрес в виде аргумента. (run-time operations) ;
+    f@ \ guess x residLevel \ F@ читает число (точность) из этого места памяти.
+    f-rot \ residLevel guess x
+    f-sqrt-good-enough?
+;
+
+
+
+\ ============ 3-th root ============ \
+
+: f-3th-root-improver ( guess x -- newGuess )
+  fover \ y x y
+  fsquare \ y x y^2
+  f/ \ y (x/y^2)
+  fswap \ (x/y^2) y
+  fdup \ (x/y^2) y y
+  f+ \ (x/y^2) 2y
+  f+ \ (x/y^2 + 2y)
+  3e0 \ (x/y^2 + 2y) 3
+  f/ \ (x/y^2 + 2y)/3
+;
+
+: f-3th-root-good-enough? ( residLevel guess x -- bool )
+  fswap \ residLevel x guess
+  3 f-n-pow \ residLevel x guess^3
+  f- \ residLevel (x - guess^3)
+  fabs \ residLevel |x - guess^3|
+  f> \ bool = residLevel > |x - guess^3|
+;
+
+: f-3h-root-checker ( guess x -- bool )
+  1e-6 \ guess x residLevel
+  f-rot \ residLevel guess x
+  f-3th-root-good-enough?
+;
+
+
+\ ================= PLAYGROUND =============
 
 : my-req ( x -- x ) recursive
   dup
@@ -161,4 +217,22 @@
   EXECUTE
 ;
 
+
+
+: my-constant ( n -- )
+  \ USAGE: 5 my-constant qqq
+  create ,
+  does> @
+;
+
+: my-closure ( n -- )
+  \ USAGE: 18 my-closure fff
+  create ,
+  does>
+  @
+  cr
+  ." MY-CLOSURE = "
+  .
+  cr
+;
 
