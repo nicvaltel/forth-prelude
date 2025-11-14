@@ -33,6 +33,8 @@ end-code
 : bar margin 5 stars ;
 : F bar blip bar blip blip cr ;
 
+: hehh
+
 \ : gift ." подставку для книг" ;
 \ : gifter ." Дорогая Марья" ;
 \ : thanks ." , cпасибо за " ;
