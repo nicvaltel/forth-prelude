@@ -1,6 +1,18 @@
 : :r "/home/kolay/prog/gforth/src/prelude/list.4th" included ;
 
-\ *** ============================== TUPLE ============================== *** \
+
+\ *** ============================== COMPOSITION ============================== *** \w
+\ : compose ( xt xt -- xt)
+\   : test1 cr ." TEST-1" ;
+\   : test2 cr ." TEST-2" ;
+\   test1
+\   test2
+\   test2
+\   test1
+\ ;
+
+
+\ *** ============================== TUPLE ============================== *** \w
 
 : cons ( a b -- <a,b> )
   2 cells allocate throw \ a b adr ( alloc 2 cells of memory )
@@ -21,113 +33,130 @@
 : cdr ( <a,b> -- b ) cell+ @ ;
 
 \ USAGE:
-1 2 cons constant x
-3 4 cons constant y
-x y cons constant z
+\ 1 2 cons constant x
+\ 3 4 cons constant y
+\ x y cons constant z
 \ x car -- 1
 \ x cdr -- 2
 \ z car car -- 1
 \ z cdr car -- 3
 
 
-
+: un-cons ( <a,b> -- a b )
+  dup  \ <a,b> <a,b>
+  car  \ <a,b> a
+  swap \ a <a,b>
+  cdr  \ a b
+;
 
        
 
 \ *** ============================== LIST ============================== *** \
 
-\ Создаём узел в куче (через allocate)
-\ USAGE: 0 17 node || head 27 node
-: node ( next-node value -- addr )
-  2 cells allocate throw    \ next-node val adr ( выделяем 2 ячейки памяти )
-  >r                        \ next-node val |R: adr ( сохраняем адрес в R-стек )
-  r@                        \ next-node val adr
-  !                         \ next-node ( записываем value )
-  r@                        \ next-node adr
-  cell+ !                   \ _ ( записываем next в adr+ )
-  r> ;                      \ adr |R: _ ( вернуть адрес узла )
-\ \ ПОЯСНЕНИЕ Создаём узел в куче (через allocate)
-\   2 cells allocate throw \ next-addr value new-addr
-\   \ выделяем 2 ячейки памяти; allocate :: ( u -- a_addr wior )
-\   \ где addr — адрес выделенной памяти (если всё прошло успешно); wior — I/O result code — код ошибки (I/O result, по стандарту Forth).
-\   \ если на стеке wior = 0 thow не делает ничего, иначе выбрасывает ошибку с кодом wior
-\ cell+ ( a-addr1 -- a-addr2 ) 
+\ USAGE: 17 0 node || 27 head node
+: node ( val tail-adr -- head-adr )  cons ;
 
-: value@ ( addr -- n ) @ ;
+: value@ ( addr -- val ) @ ;
 : next@  ( addr -- addr' ) cell+ @ ;
 
-
+: singleton ( val -- list ) 0 node ;
 
 \ USAGE: 66 head5 append constant head6 
-: append ( value next-head-addr -- addr )
-  swap \ next-head-addr value
-  node
+\ USAGE 10 singleton 20 append 30 append => 30 : 10 : 20 : []
+: append ( list val -- newList ) swap node ;
+
+: tail ( head-addr -- tail-addr )
+  next@ \ val tail-addr
 ;
 
-: tail ( head-addr -- tail-addr value )
-  dup \ head-addr head-addr
-  value@ \ head-addr val
-  swap \ val head-addr
-  next@ \ val tail-addr
-  swap \ tail-addr value
-;
+: head ( head-adr -- val ) value@ ;
+: .head ( head-adr -- head-adr val ) dup head ;
+
+
 
   
-: show-list ( addr -- )
+: showl ( addr -- )
   begin
     dup 0<>            \ пока адрес не нулевой
   while
     dup value@ .       \ печатаем значение
+    ." : "
     next@              \ переходим к следующему
   repeat
+  ." []"
   drop ;
 
-: .show-list dup show-list ;
-
-
-\ USAGE: head5 clone constant head5clone
-: clone ( adr -- new-adr )
-  0 swap \ 0 adr
-  begin
-    dup 0<> \ 0 adr
-  while
-    dup value@ \ 0 adr val
-    rot \ adr val 0
-    swap \ adr 0 val
-    node \ adr new-adr
-    swap \ new-adr adr
-    next@ \ new-adr adr'
-  repeat
-  drop \ new-adr
-;
-\ EXAMPLE:
-\  head5 clone-list constant head5clone 
-\  head5clone show-list  10 20 30 40 50  ok
-\  33 head5 next@ next@ !  ok
-\  head5 show-list  50 40 33 20 10  ok
-\  head5clone show-list  10 20 30 40 50  ok
-
+: .showl dup showl ;
 
 \ USAGE: head reverse constant head-rev
 : reverse ( adr -- new-adr )
   0 >r \ put zero adress to r-stack for new result list
   begin
-    dup 0<> \ adr (adr!=0)
-  while
-    dup \ adr adr
-    value@ \ adr val
+    dup 0<> \ adr (adr<>0)
+  while \ adr
+    .head \ adr val
     r> \ adr val node-next
-    swap \ adr node-next val
     node \ adr node-next'
     >r \ adr
-    next@
+    tail \ adr'
   repeat \ adr
   drop \ _
   r> \ node-next  
 ;
 
 
-\ USAGE: : inc ( w -- w ) 1 + ; ' inc head map || head5 reverse ' inc swap map show-list
+: [[[ 1 ;
+
+: ,, ( n val -- val n+1 )
+  swap \ val n
+  1 +  \ val n+1
+;
+
+\ USAGE: [[[ 1 ,, 2 ,, 3 ]]]
+: ]]] ( x ... x_n-1 n xn -- list )
+  swap
+  0 >r \ x ... xn n |R: list
+  begin \ x ... xn n |R: list
+    dup 0<>
+  while  \ x ... xn n      |R: list
+    swap \ x ... n xn      |R: list
+    r>   \ x ... n xn list |R: _
+    node \ x ... n list'   |R: _
+    >r   \ x ... n         |R: list'
+    1 -  \ x ... (n-1)     |R: list'
+  repeat \ 0 | R: list'
+  drop
+  r>
+;
+
+
+\ USAGE: head5 clone constant head5clone
+: clone ( adr -- new-adr )
+  0 >r \ adr |R: new-adr
+  begin
+    dup 0<> \ adr (adr<>0)
+  while \ adr
+    .head \ adr val
+    r> \ adr val new-adr |R: _
+    node \ adr new-adr'
+    >r \ adr |R: new-adr'
+    tail \ adr'
+  repeat \ adr |R: new-adr'
+  drop \ _
+  r> \ new-adr' |R: _
+  reverse
+;
+\ EXAMPLE:
+\  head5 clone-list constant head5clone 
+\  head5clone showl  10 20 30 40 50  ok
+\  33 head5 next@ next@ !  ok
+\  head5 showl  50 40 33 20 10  ok
+\  head5clone showl  10 20 30 40 50  ok
+
+
+
+
+\ USAGE: : inc ( w -- w ) 1 + ; ' inc head map || head5 reverse ' inc swap map showl
 : map ( xt adr -- adr-new )
   0 >r ( put zero adress to r-stack )
   begin
@@ -138,7 +167,6 @@ x y cons constant z
     swap \ xt adr val xt
     execute \ xt adr f(val)
     r> \ xt adr f(val) next-node
-    swap \ xt adr next-node f(val)
     node \ xt adr next-node'
     >r \ xt adr
     next@ \ xt adr'
@@ -149,7 +177,7 @@ x y cons constant z
 ;
 
 
-\ USAGE: : predicate ( w -- bool ) 25 > ; ' predicate head5 filter show-list
+\ USAGE: : predicate ( w -- bool ) 25 > ; ' predicate head5 filter showl
 : filter ( xt vec -- vec )
   ( xt :: x -> bool, vec :: list )
   0 >r \ put zero adress to r-stack
@@ -162,9 +190,8 @@ x y cons constant z
     execute \ xt vec predicate(val)
     if \ xt vec
       dup \ xt vec vec
-      r> \ xt vec vec next-node
-      swap \ xt vec next-node vec
-      value@ \ xt vec next-node val
+      value@ \ xt vec val
+      r>     \ xt vec val next-node
       node \ xt vec next-node'
       >r \ xt vec
     else
@@ -178,7 +205,7 @@ x y cons constant z
 
 
 
-\ USAGE: ' - 0 head foldl
+\ USAGE: ' - 0 head5 foldl
 : foldl ( xt initial vec -- val )
   ( xt :: acc -> val -> acc)
   rot \ initial vec xt
@@ -197,51 +224,86 @@ x y cons constant z
   drop drop \ acc'
 ;
 
-    
-: zip-with-sub-check-next ( v1 v2 -- bool )
+
+: zip-sub-check-next ( v1 v2 -- bool )
     0<>  \ v1 (v2<>0)
     swap \ (v2<>0) v1
     0<>  \ (v2<>0) (v1<>0)
     and  \ (v2 !=0 && v1 != 0)
 ;
 
-: zip-with-sub-get-values ( v1 v2 -- x1 x2 )
+: zip-sub-get-values ( v1 v2 -- x1 x2 )
     value@ \ v1 v2 v1 v2-val
     swap \ v1 v2 v2-val v1
     value@ \ v1 v2 v2-val v1-val
     swap \ v1 v2 v1-val v2-val
 ;
 
-: zip-with-sub-get-next ( v1 v2 -- adr1 adr2 )
+: zip-sub-get-next ( v1 v2 -- adr1 adr2 )
     next@ \ v1 v2'
     swap \ v2' v1
     next@ \ v2' v1'
     swap \ v1' v2'
 ;
 
-\ USAGE: ' + vec1 head5 zip-with constant vs 
+
+\ USAGE: vec2 head5 zip constant vs => (300,50) (200, 40) (100,30)
+: zip ( v1 v2 -- vecCons )
+  ( list a, list b ->  list <a,b> )
+  0 >r  \ v1 v2 |R: 0
+  begin \ v1 v2 |R: 0
+    2dup \ v1 v2 v1 v2
+    zip-sub-check-next \ v1 v2 bool
+  while \ v1 v2 |R: next-node
+    2dup \ v1 v2 v1 v2
+    zip-sub-get-values \ v1 v2 val1 val2
+    cons \ v1 v2 <val1,val2>
+    r> \ v1 v2 <val1,val2> next-node |R: _
+    node \ v1 v2 next-node'
+    >r   \ v1 v2 |R: next-node'
+    zip-sub-get-next \ v1' v2'
+  repeat \ v1 v2 |R: next-node
+  drop drop \ _
+  r> \ next-node
+  reverse \ next-node
+;
+
+
+    
+\ \ USAGE: ' + vec1 head5 zip-with constant vs => 80 60 40
+\ : zip-with111 ( xt v1 v2 -- list )
+\   rot \ v1 v2 xt
+\   >r \ v1 v2 |R: xt
+\   zip \ vecCons
+\   ' un-cons \ vec un-cons-addr
+\   swap \ un-cons-addr vec
+\   map
+\   ;
+
+\ USAGE: ' + vec1 head5 zip-with constant vs => 80 60 40
 : zip-with ( xt v1 v2 -- list )
   \ xt :: v1 v2 -> v
   rot \ v1 v2 xt
-  >r \ v1 v2 |R: xt
-  0 >r \ v1 v2 |R: xt 0
-  begin \ v1 v2
+  0 >r \ v1 v2 xt |R: 0
+  >r \ v1 v2 |R: 0 xt
+  begin \ v1 v2 |R: next-head' xt
     2dup \ v1 v2 v1 v2
-    zip-with-sub-check-next \ v1 v2 bool
-  while \ v1 v2
+    zip-sub-check-next \ v1 v2 bool
+  while \ v1 v2 |R: next-head' xt
     2dup \ v1 v2 v1 v2
-    zip-with-sub-get-values \ v1 v2 v1-val v2-val
-    r> \ v1 v2 v1-val v2-val next-node |R: xt
-    -rot \ v1 v2 next-node v1-val v2-val |R: xt
-    r@ \ v1 v2 next-node v1-val v2-val xt |R: xt
-    execute \ v1 v2 next-node f(v1,v2)
-    node \ v1 v2 next-node'
-    >r \ v1 v2 |R: xt next-node'
-    zip-with-sub-get-next
-  repeat \ v1 v2
-  drop drop \ _ |R: xt next-node'
-  r> r> \ next-node' xt |R: _
-  drop \ next-node'
+    zip-sub-get-values \ v1 v2 v1-val v2-val
+    r@ \ v1 v2 v1-val v2-val xt |R: next-head xt
+    execute \ v1 v2 f(v1,v2)
+    r>      \ v1 v2 f(v1,v2) xt           |R: next-head
+    swap    \ v1 v2 xt f(v1,v2)           |R: next-head
+    r>      \ v1 v2 xt f(v1,v2) next-head |R: _
+    node \ v1 v2 xt next-head'
+    >r >r \ v1 v2 |R: next-head' xt
+    zip-sub-get-next
+  repeat \ v1 v2 |R: next-head' xt
+  drop drop \ _
+  r> drop \ _ |R: next-head'
+  r> \ next-head' |R: _
   reverse \ next-node'
 ;
 
@@ -249,23 +311,23 @@ x y cons constant z
 
 \ *** ============================== EXAMPLE ============================== *** \
 
-0 10 node constant head1 
-head1 20 node constant head2 
-head2 30 node constant head3
-head3 40 node constant head4
-head4 50 node constant head5
+10 0 node constant head1  \ next = NULL
+20 head1 node constant head2 
+30 head2 node constant head3
+40 head3 node constant head4
+50 head4 node constant head5
 \ to add: head5 60 node constant head6
 
 
-0           \ NULL
-10 node \ узел со значением 10
-20 node \ узел со значением 20
-30 node \ узел со значением 30
-constant head
+10 0 node \ узел со значением 10 \ next = NULL
+20 swap node \ узел со значением 20
+30 swap node \ узел со значением 30
+constant lshead
 
-0 10  node 20  node 30  node constant vec1
-0 100 node 200 node 300 node constant vec2
-0 -1 node constant vec-zero
+10  0 node 20  swap node 30  swap node constant vec1
+100 0 node 200 swap node 300 swap node constant vec2
+\ 1000 0 node 2000 ::: 3000 ::: 4000 ::: 5000 ::: constant vec3
+-1  0 node constant vec-zero
 
 
 : inc ( w -- w ) 1 + ;
