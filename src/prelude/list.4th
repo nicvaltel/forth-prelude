@@ -1,15 +1,6 @@
-: :r "/home/kolay/prog/gforth/src/prelude/list.4th" included ;
+: :r "/home/kolay/prog/forth/src/prelude/list.4th" included ;
 
 
-\ *** ============================== COMPOSITION ============================== *** \w
-\ : compose ( xt xt -- xt)
-\   : test1 cr ." TEST-1" ;
-\   : test2 cr ." TEST-2" ;
-\   test1
-\   test2
-\   test2
-\   test1
-\ ;
 
 
 \ *** ============================== TUPLE ============================== *** \w
@@ -72,7 +63,19 @@
 : head ( head-adr -- val ) value@ ;
 : .head ( head-adr -- head-adr val ) dup head ;
 
+: tail-head ( head-adr -- tail-adr head-value )
+  dup \ head-adr head-adr
+  tail \ head-adr tail-adr
+  swap \ tail-adr head-adr
+  head \ tail-adr head-val
+;
 
+: head-tail ( head-adr -- head-value tail-adr )
+  dup  \ head-adr head-adr
+  head \ head-adr head-val
+  swap \ head-val head-adr
+  tail \ head-val tail-adr
+;
 
   
 : showl ( addr -- )
@@ -269,17 +272,6 @@
 ;
 
 
-    
-\ \ USAGE: ' + vec1 head5 zip-with constant vs => 80 60 40
-\ : zip-with111 ( xt v1 v2 -- list )
-\   rot \ v1 v2 xt
-\   >r \ v1 v2 |R: xt
-\   zip \ vecCons
-\   ' un-cons \ vec un-cons-addr
-\   swap \ un-cons-addr vec
-\   map
-\   ;
-
 \ USAGE: ' + vec1 head5 zip-with constant vs => 80 60 40
 : zip-with ( xt v1 v2 -- list )
   \ xt :: v1 v2 -> v
@@ -309,6 +301,48 @@
 
 
 
+\ *** ============================== COMPOSITION ============================== *** \w
+
+
+: compose ( vecXt -- val )
+  begin
+    dup \ vecXt vecXt
+    0<> \ vecXt (vecXt<>0)
+  while \ vecXt
+    head-tail \ vecXt-xt vecXt-tail
+    >r \ vecXt-xt \ main stack should be clean from vecXt elements before call execute
+    execute \ execResult
+    r> \ execResult vecXt-tail
+  repeat \ execResult vecXt-tail-null
+  drop \ execResult
+;
+
+
+\ USAGE :
+\ : inc ( w -- w ) 1 + ;
+\ : mul2 ( w -- w ) 2 * ;
+\ ' inc singleton ' mul2 append constant vecF
+\ vecF head5 map-compose 
+: map-compose ( vecXt vec -- vec-new )
+  0 >r ( put zero adress to r-stack )
+  begin
+    dup 0<> \ vecXt adr (adr!=0)
+  while \ vecXtadr
+    2dup \ vecXt adr vecXt adr
+    value@ \ vecXt adr vecXt val
+    swap \ vecXt adr val vecXt
+    compose \ vecXt adr f(val)
+    r> \ vecXt adr f(val) next-node
+    node \ vecXt adr next-node'
+    >r \ vecXt adr
+    next@ \ vecXt adr'
+  repeat \ vecXt adr
+  drop drop \ _
+  r> \ adr-new
+  reverse
+;
+
+
 \ *** ============================== EXAMPLE ============================== *** \
 
 10 0 node constant head1  \ next = NULL
@@ -331,6 +365,9 @@ constant lshead
 
 
 : inc ( w -- w ) 1 + ;
+: mul2 ( w -- w ) 2 * ;
+' inc singleton ' mul2 append constant vecF
+
 : predicate ( w -- bool ) 25 > ;
 
 
