@@ -44,7 +44,7 @@
 
 \ *** ============================== LIST ============================== *** \
 
-\ USAGE: 17 0 node || 27 vec-a node
+\ USAGE: 17 0 node || 27 vec5 node
 : node ( value next-node-adr -- new-node-adr ) pair ;
 
 : head  ( list-adr -- value ) @ ;
@@ -111,7 +111,8 @@
 ;
 
 
-\ USAGE: vec-a reverse constant vec-rev
+
+\ USAGE: vec5 reverse constant vec-rev
 : reverse ( list-adr -- rev-list-adr )
   0 >r         ( adr |R: 0 ) \ put zero adress to r-stack for new result list
   begin        ( adr )
@@ -170,50 +171,51 @@
 ;
 
 
-\ USAGE: : inc ( w -- w ) 1 + ; ' inc vec-a map || vec5 ' mul2 swap map showl
+: 2dup-execute ( xt adr -- xt adr f{val} )
+  2dup    ( xt adr xt adr )
+  head    ( xt adr xt val )
+  swap    ( xt adr val xt )
+  execute ( xt adr f{val} )
+;
+
+\ USAGE: : inc ( w -- w ) 1 + ; ' inc vec5 map || vec5 ' mul2 swap map showl
 : map ( func-xt list-adr -- new-list-adr )
-  0 >r      ( xt adr |R: new-adr ) \ put zero adress to r-stack
+  0 >r               ( xt adr |R: new-adr ) \ put zero adress to r-stack
   begin
-    dup 0<> ( xt adr adr!=0 )
-  while     ( xt adr )
-    2dup    ( xt adr xt adr )
-    head    ( xt adr xt val )
-    swap    ( xt adr val xt )
-    execute ( xt adr f{val} )
-    r>      ( xt adr f{val} next-node |R: )
-    node    ( xt adr next-node' )
-    >r      ( xt adr |R: next-node' )
-    tail    ( xt adr' )
-  repeat    ( xt adr )
-  drop drop ( )
-  r>        ( adr-new |R: )
-  reverse   ( adr-new )
+    dup 0<>          ( xt adr adr!=0 )
+  while              ( xt adr )
+    2dup-execute  ( xt adr f{val} )
+    r>               ( xt adr new-val next-node |R: )
+    node             ( xt adr next-node' )
+    >r               ( xt adr |R: next-node' )
+    tail             ( xt adr' )
+  repeat             ( xt adr )
+  drop drop          ( )
+  r>                 ( adr-new |R: )
+  reverse            ( adr-new )
 ;
 
 
 \ USAGE: : predicate ( w -- bool ) 25 > ; ' predicate vec5 filter showl
-: filter     ( predicate-xt list -- filtered-list )
-  0 >r       ( xt vec |R: new-adr )
-  begin      ( xt vec )
-    dup 0<>  ( xt vec vec<>0 )
-  while      ( xt vec )
-    2dup     ( xt vec xt vec )
-    head     ( xt vec xt val )
-    swap     ( xt vec val xt )
-    execute  ( xt vec predicate{val} )
-    if       ( xt vec )
-      dup    ( xt vec vec )
-      head   ( xt vec val )
-      r>     ( xt vec val next-node )
-      node   ( xt vec next-node' )
-      >r     ( xt vec )
-    else     ( xt vec )
-    then     ( xt vec )
-    tail     ( xt vec' )
-  repeat     ( xt vec' )
-  drop drop  ( )
-  r>         ( vec' )
-  reverse    ( vec' )
+: filter            ( predicate-xt list -- filtered-list )
+  0 >r              ( xt vec |R: new-adr )
+  begin             ( xt vec )
+    dup 0<>         ( xt vec vec<>0 )
+  while             ( xt vec )
+    2dup-execute    ( xt vec predicate{val} )
+    if              ( xt vec )
+      dup           ( xt vec vec )
+      head          ( xt vec val )
+      r>            ( xt vec val next-node )
+      node          ( xt vec next-node' )
+      >r            ( xt vec )
+    else            ( xt vec )
+    then            ( xt vec )
+    tail            ( xt vec' )
+  repeat            ( xt vec' )
+  drop drop         ( )
+  r>                ( vec' )
+  reverse           ( vec' )
 ;
 
 
@@ -223,41 +225,41 @@
 \ vecp fst showl 50 : 40 : 30 : [] ok
 \ vecp snd showl 20 : 10 : [] ok
 : partition  ( predicate-xt list -- <filtered-list,filtered-not-list> )
-  0 >r       ( xt vec |R: new-adr-true )
-  0 >r       ( xt vec |R: new-adr-true new-adr-false  )
-  begin      ( xt vec )
-    dup 0<>  ( xt vec vec<>0 )
-  while      ( xt vec )
-    2dup     ( xt vec xt vec )
-    head     ( xt vec xt val )
-    swap     ( xt vec val xt )
-    execute  ( xt vec predicate{val} )
-    if       ( xt vec )
-      dup    ( xt vec vec )
-      head   ( xt vec val )
-      r>     ( xt vec val adr-false |R: adr-true )
-      swap   ( xt vec adr-false val |R: adr-true )
-      r>     ( xt vec adr-false val adr-true |R: )
-      node   ( xt vec adr-false next-true-node )
-      >r     ( xt vec adr-false |R: next-true-node )
-      >r     ( xt vec |R: next-true-node adr-false )
-    else     ( xt vec )
-      dup    ( xt vec vec )
-      head   ( xt vec val )
-      r>     ( xt vec val adr-false |R: adr-true )
-      node   ( xt vec next-false-node )
-      >r     ( xt vec |R: adr-true next-false-node )
-    then     ( xt vec )
-    tail     ( xt vec' )
-  repeat     ( xt vec' )
-  drop drop  ( )
-  r>         ( true-vec )
-  reverse    ( true-vec )
-  r>         ( true-vec false-vec )
-  reverse    ( true-vec false-vec )
-  swap       ( false-vec true-vec )
-  pair       ( pair<true-vec,false-vec> )
+  0 >r           ( xt vec |R: new-adr-true )
+  0 >r           ( xt vec |R: new-adr-true new-adr-false  )
+  begin          ( xt vec )
+    dup 0<>      ( xt vec vec<>0 )
+  while          ( xt vec )
+    2dup-execute ( xt vec predicate{val} )
+    if           ( xt vec )
+      dup        ( xt vec vec )
+      head       ( xt vec val )
+      r>         ( xt vec val adr-false |R: adr-true )
+      swap       ( xt vec adr-false val |R: adr-true )
+      r>         ( xt vec adr-false val adr-true |R: )
+      node       ( xt vec adr-false next-true-node )
+      >r         ( xt vec adr-false |R: next-true-node )
+      >r         ( xt vec |R: next-true-node adr-false )
+    else         ( xt vec )
+      dup        ( xt vec vec )
+      head       ( xt vec val )
+      r>         ( xt vec val adr-false |R: adr-true )
+      node       ( xt vec next-false-node )
+      >r         ( xt vec |R: adr-true next-false-node )
+    then         ( xt vec )
+    tail         ( xt vec' )
+  repeat         ( xt vec' )
+  drop drop      ( )
+  r>             ( true-vec )
+  reverse        ( true-vec )
+  r>             ( true-vec false-vec )
+  reverse        ( true-vec false-vec )
+  swap           ( false-vec true-vec )
+  pair           ( pair<true-vec,false-vec> )
 ;
+
+
+  
 
 
 \ USAGE: ' test-fold-func 0 vec5 foldl
@@ -328,15 +330,23 @@
 
 : compose ( some-args-in-stack ... list-xt -- val )
   begin
-    dup       ( args vec-xt vec-xt )
-    0<>       ( args vec-xt vec-xt<>0 )
-  while       ( args vec-xt )
-    head-tail ( args func-xt vec-xt-tail )
-    >r        ( args func-xt |R: vec-xt-tail ) \ main stack should be clean from vec-xt-tail before call execute
-    execute   ( execResult )
-    r>        ( execResult vec-xt-tail |R: )
-  repeat      ( execResult vec-xt-tail-null )
-  drop        ( execResult )
+    dup       ( args.. vec-xt vec-xt )
+    0<>       ( args.. vec-xt vec-xt<>0 )
+  while       ( args.. vec-xt )
+    head-tail ( args.. func-xt vec-xt-tail )
+    >r        ( args.. func-xt |R: vec-xt-tail ) \ main stack should be clean from vec-xt-tail before call execute
+    execute   ( exec-result.. )
+    r>        ( exec-result.. vec-xt-tail |R: )
+  repeat      ( exec-result.. vec-xt-tail-null )
+  drop        ( exec-result.. )
+;
+
+
+: 2dup-compose ( vec-funcs-xt adr )
+    2dup    ( vec-funcs-xt adr vec-funcs-xt adr )
+    head    ( vec-funcs-xt adr vec-funcs-xt val )
+    swap    ( vec-funcs-xt adr val vec-funcs-xt )
+    compose ( vec-funcs-xt adr f{val} )
 ;
 
 
@@ -350,10 +360,7 @@
   begin
     dup 0<> ( vec-funcs-xt adr adr<>0 )
   while     ( vec-funcs-xt adr )
-    2dup    ( vec-funcs-xt adr vec-funcs-xt adr )
-    head    ( vec-funcs-xt adr vec-funcs-xt val )
-    swap    ( vec-funcs-xt adr val vec-funcs-xt )
-    compose ( vec-funcs-xt adr f{val} )
+    2dup-compose ( vec-funcs-xt adr f{val} )
     r>      ( vec-funcs-xt adr f{val} next-node |R: )
     node    ( vec-funcs-xt adr next-node' )
     >r      ( vec-funcs-xt adr                  |R: next-node' )
@@ -373,10 +380,7 @@
   begin      ( xts vec )
     dup 0<>  ( xts vec vec<>0 )
   while      ( xts vec )
-    2dup     ( xts vec xts vec )
-    head     ( xts vec xts val )
-    swap     ( xts vec val xts )
-    compose  ( xts vec predicates{val} )
+    2dup-compose  ( xts vec predicates{val} )
     if       ( xts vec )
       dup    ( xts vec vec )
       head   ( xts vec val )
@@ -443,24 +447,111 @@
 ;
 
 
+: test-word1-sub
+  r> r>
+  dup
+  .
+  >r >r
+  \ alternative
+  \ r@
+  \ .
+;
 
-\ *** ============================== EXAMPLE ============================== *** \
 
+: test-word1
+  100
+  >r
+  test-word1-sub
+  r>
+;
+
+
+\ *** ============================== TESTING ============================== *** \
+
+\ \ Pairs
+1 2 pair constant pair-x
+3 4 pair constant pair-y
+pair-x pair-y pair constant pair-z
+
+\ \ Lists
 10 0 node constant vec1  \ next = NULL
 20 vec1 node constant vec2 
 30 vec2 node constant vec3
 40 vec3 node constant vec4
 50 vec4 node constant vec5
-\ \ to add: vec5 60 node constant vec6
-
-
-10 0 node \ узел со значением 10 \ next = NULL
-20 swap node \ узел со значением 20
-30 swap node \ узел со значением 30
-constant vec-a
 
 10   0 node 20  swap node 30  swap node constant vec-x10
 100  0 node 200 swap node 300 swap node constant vec-x100
+
+: inc ( n -- n ) 1 + ;
+: mul2 ( n -- n ) 2 * ;
+: test-fold-func ( acc x -- new-x ) 2 * + ;
+
+
+: print-test-result ( bool -- ) if ." ok " else ." FAIL " then ;
+
+: test-pairs ( -- )
+  cr ." TEST-1: "
+  pair-x fst
+  1 = print-test-result
+
+  cr ." TEST-2: " 
+  pair-x snd
+  2 = print-test-result
+
+  cr ." TEST-3: "
+  pair-z fst fst
+  1 = print-test-result
+
+  cr ." TEST-4: "
+  pair-z snd fst
+  3 = print-test-result
+
+  cr ." TEST-5: "
+  pair-y un-pair
+  4 = print-test-result
+  3 = print-test-result
+
+  cr ." TEST-6: "
+  17 0 node
+  head-tail 
+  0 = print-test-result
+  17 = print-test-result
+
+  cr ." TEST-7: "
+  27 vec5 node
+  head-tail tail tail head
+  30 = print-test-result
+  27 = print-test-result
+
+  cr ." TEST-8: "
+  vec5 reverse
+  head-tail head
+  20 = print-test-result
+  10 = print-test-result
+
+
+  cr ." TEST-9: "
+  vec5 ['] mul2 swap map
+  head-tail head
+  80 = print-test-result
+  100 = print-test-result
+
+
+  
+;
+
+: run-test ( -- )
+  test-pairs
+;
+
+
+
+
+
+\ *** ============================== EXAMPLE ============================== *** \
+
+
 \ [[[ 1000 ,, node 2000 ,, 3000 ,, 4000 ,, 5000 ]]] constant vec-x1000
 \ -1  0 node constant vec-zero
 
