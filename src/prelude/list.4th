@@ -2,15 +2,18 @@
 
 \ *** ============================== TUPLE ============================== *** \w
 
-: pair ( a b -- <a,b> )
-  2 cells allocate throw ( a b adr ) \ alloc 2 cells of memory
-  >r                     ( a b |R: adr )
-  r@                     ( a b adr )
-  cell+ !                ( a ) \ save b to adr+
-  r@                     ( a adr )
-  !                      ( _ ) \ save a to adr
+
+\ USAGE: 50 100 pair => <100, 50> => un-pair => 100 50
+: pair ( b a -- <a,b> )
+  2 cells allocate throw ( b a adr ) \ alloc 2 cells of memory  
+  >r                     ( b a |R: adr )
+  r@                     ( b a adr )
+  !                      ( b ) \ save a to adr
+  r@                     ( b adr )
+  cell+ !                ( ) \ save b to adr+
   r>                     ( adr |R: _ )
 ;
+( 100, 50 )
 \ \ ПОЯСНЕНИЕ Создаём узел в куче (через allocate)
 \   2 cells allocate throw \ next-addr value new-addr
 \   \ выделяем 2 ячейки памяти; allocate :: ( u -- a_addr wior )
@@ -19,7 +22,7 @@
 \ cell+ ( a-addr1 -- a-addr2 )
 
 : fst ( <a,b> -- a ) @ ;
-: snd ( <a,b> -- b ) cell+ @ ; \ immediate
+: snd ( <a,b> -- b ) cell+ @ ;
 
 \ USAGE:
 \ 1 2 pair constant pair-x
@@ -32,18 +35,36 @@
 
 : free-pair ( pair -- ) free throw ;
 
-
-: un-pair ( <a,b> -- a b )
+: un-pair ( <a,b> -- b a )
   dup  \ <a,b> <a,b>
-  fst  \ <a,b> a
-  swap \ a <a,b>
-  snd  \ a b
+  snd  \ <a,b> b
+  swap \ b <a,b>
+  fst  \ b a
 ;
 
-\ : un-pair ( pair -- a b )
-\   dup @ \ a
-\   swap cell+ @
-\ ;
+: show-pair ( <a,b> -- )
+  ." <"
+  dup fst .
+  ." ,"
+  snd .
+  ." >"
+;
+
+
+\ USAGE: pair-x dup eq-pair ; pair-x pair-y eq-pair
+: eq-pair ( <a1,b1> <a2,b2> -- bool )
+  un-pair ( <a1,b1> b2 a2 )
+  rot     ( b2 a2 <a1,b1> )
+  un-pair ( b2 a2 b1 a1 )
+  rot     ( b2 b1 a1 a2 )
+  =       ( b2 b1 a1=a2 )
+  -rot    ( a1=a2 b2 b1 )
+  =       ( a1=a2 b2=b1 )
+  and     ( a1=a2 && b2=b1 )
+;
+
+
+
 \ 10000000 bench-up-pair  Time (microseconds): 398628 
 \  ok
 \ 10000000 bench-up-pair  Time (microseconds): 404622 
@@ -53,11 +74,11 @@
 
 \ *** ============================== LIST ============================== *** \
 
-\ USAGE: 17 0 node || 27 vec5 node
-: node ( value next-node-adr -- new-node-adr ) pair ;
+\ USAGE: 0 17 node || vec5 27 node
+: node ( next-node-adr value -- new-node-adr ) pair ; \ <value, next-node-adr>
 
-: head  ( list-adr -- value ) @ ;
-: tail  ( list-adr -- next-node-adr  ) cell+ @ ;
+: head  ( list-adr -- value ) fst ;
+: tail  ( list-adr -- next-node-adr  ) snd ;
 
 : ?null ( list -- bool ) 0= ;
 
@@ -78,13 +99,16 @@
   tail \ head-val tail-adr
 ;
 
-
-: singleton ( val -- list-adr ) 0 pair ;
+\ USAGE: 17 singleton
+: singleton ( val -- list-adr )
+  0 swap    ( 0 val )
+  pair
+;
 
 
 \ USAGE: 66 vec5 cons constant vec6 
 \ USAGE 10 singleton 20 cons 30 cons => 30 : 10 : 20 : []
-: cons ( list val -- newList ) swap pair ;
+: cons ( list val -- newList ) pair ;
 
 
 \ USAGE: vec5 free-list
@@ -139,20 +163,35 @@
 ;
 
 
+\ USAGE: list-x10 length
+: length ( list -- n )
+  0      ( list 0 )
+  swap   ( 0 list )
+  begin
+    dup  ( n list list )
+  while  ( n list ) \ when list<>0
+    swap ( list n )
+    1 +  ( list n+1 )
+    swap ( n+1 list )
+    tail ( n+1 list' )
+  repeat ( n list )
+  drop   ( n ) 
+;
 
 
 \ USAGE: vec5 reverse constant vec-rev
 : reverse ( list-adr -- rev-list-adr )
-  0 >r         ( adr |R: 0 ) \ put zero adress to r-stack for new result list
-  begin        ( adr )
-    dup        ( adr adr<>0 ) \ 0 = false
-  while        ( adr )
-    dup head   ( adr val )
-    r>         ( adr val node-next |R: )
-    node       ( adr node-next' )
-    >r         ( adr |R: node-next' )
-    tail       ( adr' )
-  repeat       ( adr )
+  0 >r         ( vec |R: 0 ) \ put zero adress to r-stack for new result list
+  begin        ( vec )
+    dup        ( vec vec <>0 ) \ 0 = false
+  while        ( vec )
+    r>         ( vec next-node |R: )
+    over       ( vec next-node vec )
+    head       ( vec next-node val )
+    node       ( vec adr node-next' )
+    >r         ( vec |R: node-next' )
+    tail       ( vec' )
+  repeat       ( vec )
   drop         ( )
   r>           ( node-next |R: )
 ;
@@ -175,112 +214,65 @@
 \  vec5clone showl  50 40 30 20 10  ok
 
 
+
 \ USAGE: vec-x10 vec-x100 list-join
-: list-join ( list1 list2 -- list-1-2 )
-  >r           ( adr1 |R: adr2 )
-  reverse      ( reversed-adr1 )
-  begin
-    dup        ( adr1 adr1<>0 )
-  while        ( adr1 )
-    dup head   ( adr1 val1 )
-    r>         ( adr1 val1 new-adr |R: )
-    node       ( adr1 new-adr' )
-    >r         ( adr1 |R: new-adr' )
-    tail       ( adr1' )
-  repeat       ( adr1 |R: new-adr' )
-  drop         ( )
-  r>           ( new-adr' |R: _ )
+: list-join ( list1 list2 -- list-1-2 ) recursive
+  swap        ( v2 v1 )
+  dup         ( v2 v1 v1 )
+  if          ( v2 v1 ) \ when v1<>0
+    head-tail ( v2 val1 v1-tail )
+    rot       ( val1 v1-tail v2 )
+    list-join ( val1 joined )
+    swap      ( joined val1 )
+    node      ( joined' )    
+  else        ( v2 0 ) \ when v1=0
+    drop      ( v2 )
+  then
 ;
 
 
-: 2dup-execute ( xt adr -- xt adr f{val} )
-  2dup    ( xt adr xt adr )
-  head    ( xt adr xt val )
-  swap    ( xt adr val xt )
-  execute ( xt adr f{val} )
-;
-
-\ USAGE: : inc ( w -- w ) 1 + ; ' inc vec5 map || vec5 ' mul2 swap map showl
-: map-loop ( func-xt list-adr -- new-list-adr )
-  0 >r               ( xt adr |R: new-adr ) \ put zero adress to r-stack
-  begin
-    dup              ( xt adr adr!=0 )
-  while              ( xt adr )
-    2dup-execute     ( xt adr f{val} )
-    r>               ( xt adr new-val next-node |R: )
-    node             ( xt adr next-node' )
-    >r               ( xt adr |R: next-node' )
-    tail             ( xt adr' )
-  repeat             ( xt adr )
-  drop drop          ( )
-  r>                 ( adr-new |R: )
-  reverse            ( adr-new )
-;
-
-
-\ USAGE: : inc ( w -- w ) 1 + ; ' inc vec5 map || vec5 ' mul2 swap map showl
-: map ( func-xt list-adr -- new-list-adr ) recursive
-  dup ?null      ( xt list ?null ) \ can be changed to " dup " and switch if and else code
-  if             ( xt 0 )         \ list is empty
-    swap drop    ( 0 ) \ return zero as nex-adress of last node
-  else           ( xt list )
-    2dup-execute ( xt list f{val} )
-    -rot         ( f{val} xt list )
-    tail         ( f{val} xt list-tail )
-    map          ( f{val} new-list )
-    node         ( new-list' )
+\ USAGE: : inc ( w -- w ) 1 + ; vec5 ' inc map || ' mul2 vec5 swap map showl
+: map ( list-adr func-xt  -- new-list-adr ) recursive
+  >r             ( list |R: xt )
+  dup            ( list list )
+  if             ( list ) \ when list is not empty
+    tail-head    ( list-next val )
+    r@           ( list-next val xt )
+    execute      ( list-next f{val} )
+    swap         ( f{val} list-next )
+    r>           ( f{val} list-next xt |R: )
+    map          ( f{val} new-list-next )
+    swap         ( new-list-next f{val} )
+    node         ( new-list )
+  else           ( 0 ) \ when list is empty
+    r>           ( 0 xt |R: )
+    drop         ( 0 ) \ return zero as next-adress of last node
   then           ( new-list )
 ;
 
 
-
-\ USAGE: : predicate ( w -- bool ) 25 > ; ' predicate vec5 filter showl
-: filter-loop            ( predicate-xt list -- filtered-list )
-  0 >r              ( xt vec |R: new-adr )
-  begin             ( xt vec )
-    dup 0<>         ( xt vec vec<>0 )
-  while             ( xt vec )
-    2dup-execute    ( xt vec predicate{val} )
-    if              ( xt vec )
-      dup           ( xt vec vec )
-      head          ( xt vec val )
-      r>            ( xt vec val next-node )
-      node          ( xt vec next-node' )
-      >r            ( xt vec )
-    else            ( xt vec )
-    then            ( xt vec )
-    tail            ( xt vec' )
-  repeat            ( xt vec' )
-  drop drop         ( )
-  r>                ( vec' )
-  reverse           ( vec' )
+\ USAGE: : predicate ( w -- bool ) 30 > ; vec5 ' predicate filter showl
+: filter ( list predicate-xt -- filtered-list ) recursive
+  >r             ( list |R: xt )
+  dup            ( list list )
+  if             ( list )         \ list is not empty
+    head-tail    ( val list-next )
+    r@           ( val list-next xt )
+    filter       ( val filtered-list-next )
+    swap         ( filtered-list-next val )
+    dup          ( filtered-list-next val val )
+    r>           ( filtered-list-next val val xt |R: )
+    execute      ( filtered-list-next val predicate{val} )
+    if           ( filtered-list-next val ) \ when predicate{val} = true
+      node       ( filtered-list )
+    else
+      drop       ( filtered-list-next )
+    then
+  else           ( 0 ) \ list is empty
+    r>           ( 0 xt |R: )
+    drop         ( 0 ) \ return empty list
+  then           
 ;
-
-
-
-\ USAGE: : predicate ( w -- bool ) 25 > ; ' predicate vec5 filter showl
-: filter ( predicate-xt list -- filtered-list ) recursive
-  dup ?null      ( xt list ?null ) \ can be changed to " dup " and switch if and else code
-  if             ( xt 0 )         \ list is empty
-    swap drop    ( 0 ) \ return zero as next-adress of last node
-  else           ( xt list )
-    swap         ( list xt )
-    >r           ( list |R: xt )
-    head-tail    ( val list-tail )
-    r@           ( val list-tail xs )
-    swap         ( val xs list-tail )
-    filter       ( val new-list )
-    over         ( val new-list val )
-    r>           ( val new-list val xt |R: )
-    execute      ( val new-list predicate{val} )
-    if           ( val new-list  ) \ predicate = true
-      node       ( new-list' )
-    else         ( val new-list ) \ predicate = false
-      swap drop  ( new-list )
-    then 
-  then           ( new-list )
-;
-
 
 
 \ \ partition p xs == (filter p xs, filter (not . p) xs)
@@ -323,38 +315,26 @@
 \ ;
 
 
-  
-
-
-
-\ USAGE: ' test-fold-func 0 vec5 foldl
-: foldl ( func-xt initial-val list -- val )
-        ( func-xt :: acc -> val -> acc)
-  rot       ( initial vec xt )
-  >r        ( initial vec      |R: xt )
-  begin     ( acc vec )
-    dup     ( acc vec (vec<>0 )
-  while     ( acc vec          |R: xt )
-    tuck    ( vec acc vec )
-    head    ( vec acc val )
-    r@      ( vec acc val xt   |R: xt )
-    execute ( vec acc' )
-    swap    ( acc' vec )
-    tail    ( acc' vec' )
+\ USAGE: vec5 17 ' test-fold-func foldl
+: foldl ( list initial-val func-xt -- val )
+        \ func-xt ( val acc -- acc)
+  >r        ( list initial |R: xt )
+  swap      ( inital list )
+  begin     ( acc list )
+    dup     ( acc list list )
+  while     ( acc list  |R: xt ) \ list is not empty
+    dup     ( acc list list )
+    head    ( acc list val )
+    rot     ( list val acc )
+    r@      ( list val acc xt )
+    execute ( list acc' )
+    swap    ( acc' list )
+    tail    ( acc' list' )
   repeat
-  r>        ( acc' vec' xt     |R: )
+  r>        ( acc' list' xt |R: )
   drop drop ( acc' )
 ;
 
-
-
-
-: zip-sub-check-next ( v1 v2 -- bool )
-    0<>  ( v1 v2<>0 )
-    swap ( v2<>0 v1 )
-    0<>  ( v2<>0 v1<>0 )
-    and  ( v2<>0 && v1<>0 )
-;
 
 : zip-sub-get-values ( v1 v2 -- x1 x2 )
     head ( v1 v2 v1 v2-val )
@@ -371,18 +351,18 @@
 ;
 
 
-\ USAGE: vec-x100 vec5 zip constant vs => (100,50) (200, 400) (300,30) (400, 200) (500,10)
-: zip ( list-a list-b -- list-pair<a,b> ) recursive
-  2dup                 ( v1 v2 v1 v2 )
-  and                  ( v1 v2 bool ) \ bool = 0 when v1 is null or v2 is null
-  if                   ( v1 v2 ) \ both lists are not null
-    2dup               ( v1 v2 v1 v2 )
-    zip-sub-get-next   ( v1 v2 v1' v2' )
-    zip                ( v1 v2 list-pair-next )
-    -rot               ( list-pair v1 v2 )
-    zip-sub-get-values ( list-pair val1 val2 )
-    pair               ( list-pair <val1,val2> )
-    swap               ( <val1,val2> list-pair )
+\ USAGE: vec5 vec-x100 zip constant vs => (100,50) (200, 400) (300,30) (400, 200) (500,10)
+: zip ( list-b list-a -- list-pair<a,b> ) recursive
+  2dup                 ( v2 v1 v2 v1 )
+  and                  ( v2 v1 bool ) \ bool = 0 when v1 is null or v2 is null
+  if                   ( v2 v1 ) \ both lists are not null
+    2dup               ( v2 v1 v2 v1 )
+    zip-sub-get-values ( v2 v1 val2 val1 )
+    pair               ( v2 v1 <val1,val2> )
+    -rot               ( <val1,val2> v2 v1 )
+    zip-sub-get-next   ( <val1,val2> v2' v1' )
+    zip                ( <val1,val2> list-pair-next )
+    swap               ( list-pair-next  <val1,val2> )
     node               ( list-pair' )
   else                 ( v1 v2 ) \ some of lists is null
     drop drop          ( )
@@ -395,11 +375,10 @@
 \ *** ============================== COMPOSITION ============================== *** \w
 
 
-: compose ( some-args-in-stack ... list-xt -- val )
+: compose ( some-args-in-stack ... list-xts -- val )
   begin
     dup       ( args.. vec-xt vec-xt )
-    0<>       ( args.. vec-xt vec-xt<>0 )
-  while       ( args.. vec-xt )
+  while       ( args.. vec-xt ) \ when vec-xt<>0
     head-tail ( args.. func-xt vec-xt-tail )
     >r        ( args.. func-xt |R: vec-xt-tail ) \ main stack should be clean from vec-xt-tail before call execute
     execute   ( exec-result.. )
@@ -409,145 +388,121 @@
 ;
 
 
-: 2dup-compose ( vec-funcs-xt adr )
-    2dup    ( vec-funcs-xt adr vec-funcs-xt adr )
-    head    ( vec-funcs-xt adr vec-funcs-xt val )
-    swap    ( vec-funcs-xt adr val vec-funcs-xt )
-    compose ( vec-funcs-xt adr f{val} )
-;
-
-
 \ USAGE :
 \ : inc ( w -- w ) 1 + ;
 \ : mul2 ( w -- w ) 2 * ;
 \ ' inc singleton ' mul2 cons constant vecF
-\ vecF vec5 map' => 101 : 81 : 61 : 41 : 21 : []
-: map' ( vec-funcs-xt vec -- vec-new )
-  0 >r      ( vec-xt vec                 |R: 0 )
-  begin
-    dup 0<> ( vec-funcs-xt adr adr<>0 )
-  while     ( vec-funcs-xt adr )
-    2dup-compose ( vec-funcs-xt adr f{val} )
-    r>      ( vec-funcs-xt adr f{val} next-node |R: )
-    node    ( vec-funcs-xt adr next-node' )
-    >r      ( vec-funcs-xt adr                  |R: next-node' )
-    tail    ( vec-funcs-xt adr' )
-  repeat    ( vec-funcs-xt adr )
-  drop drop ( )
-  r>        ( adr-new )
-  reverse   ( adr-new )
+\ vec5 vecF map' => 101 : 801 : 61 : 401 : 21 : []
+: map' ( list-adr list-func-xts -- new-list-adr ) recursive
+  >r             ( list |R: xts )
+  dup            ( list list )
+  if             ( list ) \ when list is not empty
+    tail-head    ( list-next val )
+    r@           ( list-next val xts )
+    compose      ( list-next f{val} ) \ the only change relative to map
+    swap         ( f{val} list-next )
+    r>           ( f{val} list-next xts |R: )
+    map'         ( f{val} new-list-next )
+    swap         ( new-list-next f{val} )
+    node         ( new-list )
+  else           ( 0 ) \ when list is empty
+    r>           ( 0 xt |R: )
+    drop         ( 0 ) \ return zero as next-adress of last node
+  then           ( new-list )
 ;
 
 
 \ USAGE: 
 \ ' predicate singleton ' mul2 cons constant vecPredicates
-\ vecPredicates vec5 filter' => 50 : 40 : 30 : 20 : [] 
-: filter' ( vec-predicates-xt list -- filtered-list )
-  0 >r       ( xts vec |R: new-adr )
-  begin      ( xts vec )
-    dup 0<>  ( xts vec vec<>0 )
-  while      ( xts vec )
-    2dup-compose  ( xts vec predicates{val} )
-    if       ( xts vec )
-      dup    ( xts vec vec )
-      head   ( xts vec val )
-      r>     ( xts vec val next-node )
-      node   ( xts vec next-node' )
-      >r     ( xts vec )
-    else     ( xts vec )
-    then     ( xts vec )
-    tail     ( xts vec' )
-  repeat     ( xts vec' )
-  drop drop  ( )
-  r>         ( vec' )
-  reverse    ( vec' )
+\ vec5 vecPredicates filter' => 50 : 400 : 30 : 200 : [] 
+: filter' ( list list-predicate-xts -- filtered-list ) recursive
+  >r             ( list |R: xts )
+  dup            ( list list )
+  if             ( list )         \ list is not empty
+    head-tail    ( val list-next )
+    r@           ( val list-next xts )
+    filter'      ( val filtered-list-next )
+    swap         ( filtered-list-next val )
+    dup          ( filtered-list-next val val )
+    r>           ( filtered-list-next val val xts |R: )
+    compose      ( filtered-list-next val predicate{val} )  \ the only change relative to filter
+    if           ( filtered-list-next val ) \ when predicate{val} = true
+      node       ( filtered-list )
+    else
+      drop       ( filtered-list-next )
+    then
+  else           ( 0 ) \ list is empty
+    r>           ( 0 xts |R: )
+    drop         ( 0 ) \ return empty list
+  then           
 ;
 
 
 \ USAGE:
 \ ' test-fold-func singleton ' mul2 cons constant vec-fold-func
-\ vec-fold-func 0 vec5 foldl' => 600
-: foldl' ( vec-funcs-xts initial-val list -- val )
-         ( func-xt :: acc -> val -> acc)
-  rot       ( initial list xts )
-  cr .showl
-  >r        ( initial list     |R: xts )
+\ vec5 0 vec-fold-func foldl' => 120093
+\ vec5 17 vec-fold-func foldl' => 137501
+: foldl' ( list initial-val list-func-xts -- val )
+         \ func-xt ( val acc -- acc)
+  >r        ( list initial |R: xts )
+  swap      ( inital list )
   begin     ( acc list )
-    dup 0<> ( acc list (list<>0 )
-  while     ( acc list          |R: xts )
-    tuck    ( list acc list )
-    head    ( list acc list )
-    r@      ( list acc list xts  |R: xts )    
+    dup     ( acc list list )
+  while     ( acc list  |R: xts ) \ list is not empty
+    dup     ( acc list list )
+    head    ( acc list val )
+    rot     ( list val acc )
+    r@      ( list val acc xts )
     compose ( list acc' )
     swap    ( acc' list )
     tail    ( acc' list' )
   repeat
-  r>        ( acc' list' xts    |R: )
+  r>        ( acc' list' xt |R: )
   drop drop ( acc' )
 ;
 
 
-\ USAGE: ' + vec-x10 vec5 zip-with constant vs => 80 60 40
-: zip-with ( func-xt v1 v2 -- list )
-  ( func-xt :: v1 v2 -> v )
-  zip         ( func-xt list<v1,v2> )
-  swap        ( list<v1,v2> func-xt )
-  singleton   ( list<v1,v2> [func-xt] )
-  ['] un-pair ( list<v1,v2> [func-xt] 'un-pair )
-  cons      ( list<v1,v2> ['un-pair, func-xt] )
-  swap        ( ['un-pair, func-xt] list<v1,v2> )
+\ USAGE: vec-x10 vec4 ' + zip-with showl => 410 : 50 : 230 : 50 : [] 
+: zip-with ( v2 v1 func-xt -- list )
+  \ func-xt ( v2 v1 -- v )
+  singleton   ( v2 v1 [func-xt] )
+  ['] un-pair ( v2 v1 [func-xt] 'un-pair )
+  node        ( v2 v1 ['un-pair, func-xt] )
+  -rot        ( ['un-pair, func-xt] v2 v1 )
+  zip         ( ['un-pair, func-xt] list<v1,v2> )
+  swap        ( list<v1,v2> ['un-pair, func-xt] )
   map'        ( new-list )
 ;
-
 
 \ USAGE:
 \ ' + singleton ' mul2 cons constant vecF
-\ vecF vec-x10 vec5 zip-with' constant vs => 130 : 100 : 70 : [] 
-: zip-with' ( funcs-xts v1 v2 -- list )
-  ( funcs-xts :: List of [v1 v2 -> v] )
-  zip         ( [funcs-xts,..] list<v1,v2> )
-  swap        ( list<v1,v2> [funcs-xts,..] )
-  ['] un-pair ( list<v1,v2> [funcs-xts,..] 'un-pair )
-  cons      ( list<v1,v2> ['un-pair, funcs-xts,..] )
-  swap        ( ['un-pair, funcs-xts,..] list<v1,v2> )
+\ vec-x10 vec4 vecF zip-with' showl => 810 : 80 : 430 : 60 : []
+: zip-with' ( v2 v1 funcs-xts -- list )
+  \ func-xt ( v2 v1 -- v )
+  ['] un-pair ( v2 v1 [func-xt] 'un-pair )
+  node        ( v2 v1 ['un-pair, func-xt] )
+  -rot        ( ['un-pair, func-xt] v2 v1 )
+  zip         ( ['un-pair, func-xt] list<v1,v2> )
+  swap        ( list<v1,v2> ['un-pair, func-xt] )
   map'        ( new-list )
-;
-
-
-: test-word1-sub
-  r> r>
-  dup
-  .
-  >r >r
-  \ alternative
-  \ r@
-  \ .
-;
-
-
-: test-word1
-  100
-  >r
-  test-word1-sub
-  r>
 ;
 
 
 \ *** ============================== TESTING ============================== *** \
 
 \ \ Pairs
-1 2 pair constant pair-x
-3 4 pair constant pair-y
-pair-x pair-y pair constant pair-z
+2 1 pair constant pair-x
+4 3 pair constant pair-y
+pair-y pair-x pair constant pair-z
 
 \ \ Lists
-10  0    node constant vec1  \ next = NULL
-200 vec1 node constant vec2 
-30  vec2 node constant vec3
-400 vec3 node constant vec4
-50  vec4 node constant vec5
+0 10     node constant vec1  \ next = NULL
+vec1 200 node constant vec2 
+vec2 30  node constant vec3
+vec3 400 node constant vec4
+vec4 50  node constant vec5
 
-10  singleton 20  cons 30  cons 40  cons 50  cons reverse constant vec-x10
+10  singleton 20  cons 30  cons 40  cons 50  cons reverse  constant vec-x10
 100 singleton 200 cons 300 cons 400 cons 500 cons reverse constant vec-x100
 
 
@@ -556,11 +511,11 @@ pair-x pair-y pair constant pair-z
 
 : predicate ( w -- bool ) 30 > ;
 
-: test-fold-func ( acc x -- new-x )
-  1 +  ( acc x+1 )
-  3 *  ( acc [x+1]*3 )
-  swap ( [x+1]*3 acc )
-  2 *  ( [x+1]*3 acc*2 )
+: test-fold-func ( x acc -- new-x )
+  2 *  ( x acc*2 )
+  swap ( acc*2 x )
+  1 +  ( acc*2 x+1 )
+  3 *  ( acc*2 [x+1]*3 )
   +    ( acc*2 + 3*[x+1] )
 ;  
 
@@ -568,92 +523,111 @@ pair-x pair-y pair constant pair-z
 : print-test-result ( bool -- ) if ." ok " else ." FAIL " then ;
 
 : test-pairs ( -- )
-  cr ." TEST PAIRS"
+  cr ." Test pair"
   
-  cr ." TEST-01: "
+  cr ." Test-01: "
   pair-x fst
   1 = print-test-result
 
-  cr ." TEST-02: " 
+  cr ." Test-02: " 
   pair-x snd
   2 = print-test-result
 
-  cr ." TEST-03: "
+  cr ." Test-03: "
   pair-z fst fst
   1 = print-test-result
 
-  cr ." TEST-04: "
+  cr ." Test-04: "
   pair-z snd fst
   3 = print-test-result
 
-  cr ." TEST-05: "
+  cr ." Test-05: "
   pair-y un-pair
-  4 = print-test-result
   3 = print-test-result
+  4 = print-test-result
+
+  cr ." Test-06: "
+  pair-x dup eq-pair
+  print-test-result
+
+  cr ." Test-07: "
+  pair-x pair-y eq-pair
+  invert
+  print-test-result
+
 ;
 
 : test-list ( -- )
-  cr ." TEST LIST"
+  cr ." Test list"
   
-  cr ." TEST-01: "
-  17 0 node
+  cr ." Test-01: "
+  0 17 node
   head-tail 
   0 = print-test-result
   17 = print-test-result
 
-  cr ." TEST-02: "
-  27 vec5 node
+  cr ." Test-02: "
+  vec5 27 node
   head-tail tail tail head
   30 = print-test-result
   27 = print-test-result
 
-  cr ." TEST-03: "
+  cr ." Test-03: "
+  vec-x10 length
+  5 = print-test-result
+
+  cr ." Test-04: "
   vec5 reverse
   head-tail head
   200 = print-test-result
   10 = print-test-result
   
-  cr ." TEST-04: "
+  cr ." Test-05: "
   0 reverse
   0= print-test-result
+;
 
-  cr ." TEST-05: "
-  vec5 ['] mul2 swap map
+: test-map-filter-fold ( -- )
+  cr ." Test map, filter, fold"
+  
+  cr ." Test-01: "
+  vec5 ['] mul2 map
   head-tail head
   800 = print-test-result
   100 = print-test-result
 
-  cr ." TEST-06: "
-  ['] inc 0 map
+  cr ." Test-02: "
+  0 ['] inc  map
   0= print-test-result
 
-  cr ." TEST-07: "
-  ['] predicate vec5 filter
+  cr ." Test-03: "
+  vec5 ['] predicate filter
   head-tail head-tail head
   200 = print-test-result
   400 = print-test-result
   50 = print-test-result
 
-  cr ." TEST-08: "
-  ['] predicate 0 filter
+  cr ." Test-04: "
+  0 ['] predicate filter
   0= print-test-result
 
-  cr ." TEST-09: "
-  ['] test-fold-func 0 vec5 foldl
+  cr ." Test-05: "
+  vec5 0 ['] test-fold-func foldl
   13683 = print-test-result
 
-  cr ." TEST-10: "
-  ['] test-fold-func 17 vec5 foldl
+  cr ." Test-06: "
+  vec5 17 ['] test-fold-func foldl
   14227 = print-test-result
 
-  cr ." TEST-11: "
-  ['] test-fold-func 17 0 foldl
+  cr ." Test-07: "
+  0 17 ['] test-fold-func foldl
   17 = print-test-result
 ;
 
 : run-test ( -- )
   test-pairs
   test-list
+  test-map-filter-fold
 ;
 
 
