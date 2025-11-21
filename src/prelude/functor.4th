@@ -3,64 +3,75 @@
 : :r "/home/kolay/prog/forth/src/prelude/functor.4th" included ;
 
 
-\ Just a = <true, a> \ Nothing = <false, anything>
-: just ( a -- maybe<a> ) true pair ;
-: nothing ( -- maybe<a> ) 0 false pair ;
-  
-: is-just ( maybe<a> -- bool ) fst ;
-: is-nothing ( maybe<a> -- bool ) fst invert ;
 
+
+\ USAGE: 5 just ; \ Nothing = 0
+: just ( a -- maybe<a> )
+  cell allocate throw ( a adr ) \ alloc 1 cell of memory
+  tuck                ( adr a adr )  
+  !                   ( adr ) \ save a to adr
+;
+
+: nothing ( -- maybe<a> ) 0 ;
+
+: is-just ( maybe<a> -- bool ) 0<> ;
+: is-nothing ( maybe<a> -- bool ) 0= ;
+
+: from-just ( maybe<a> -- a ) @ ;
 
 : show-may ( mybe<a> -- )
-  un-pair ( a is-just )
-  if            ( a )
+  dup      ( may may )
+  if            ( just<a> )
     ." Just( "
-    .           ( )
+    from-just .  ( )
     ." )"
-  else          ( a )
-    ." Nothing" ( a )
+  else          ( nothing )
     drop        ( )
+    ." Nothing" ( )
   then
 ;
 
-\  5 just ' mul2 fmap-maybe => <-1, 10>
+\  5 just ' mul2 fmap-maybe => Just(10) ; nothing ' inc fmap-maybe => Nothing
 : fmap-maybe ( maybe<a> func-xt -- maybe<b> )
-  swap        ( func-xt maybe<a> )
-  un-pair     ( func-xt a is-just )
-  if          ( func-xt a )
+  swap        ( func-xt may )
+  dup         ( func-xt may may )
+  is-just     ( func-xt may ?just )
+  if          ( func-xt may ) \ when just
+    from-just ( func-xt a )
     swap      ( a func-xt )
     execute   ( b )
     just      ( maybe<b> )
-  else        ( func-xt a )
-    drop drop ( )
-    nothing   ( maybe<b> )
-  then  
+  else        ( func-xt nothing ) \ when nothing
+    swap drop ( nothing )
+  then
 ;
-
 
 : pure-maybe ( a -- maybe<a> ) just ;
 
-\ 5 just ' mul2 just app-maybe => <-1,10>
+\ 5 just ' mul2 just app-maybe => Just (10)
 : app-maybe ( maybe<a> maybe<func> -- maybe<b> )
-  un-pair   ( maybe<a> func is-just )
-  if             ( maybe<a> func )
+  dup       ( may<a> may<f> may<f> )
+  is-just   ( may<a> may<f> ?just )
+  if             ( maybe<a> maybe<f> ) \ when may<f> is just
+    from-just    ( maybe<a> f )
     fmap-maybe   ( maybe<b> )
-  else           ( maybe<a> func )
-    drop drop    ( )
-    nothing      ( maybe<b> )
+  else           ( maybe<a> nothing ) \ when may<f> is nothing
+    swap drop    ( nothing )
   then
 ;
 
 
 \ USAGE: ' kleisli1  5 just bind-maybe => Just (50)
 : bind-maybe ( kleisli1 maybe<a> -- maybe<b> )
-  un-pair     ( kleisli a is-just )
-  if          ( kleisli a )
+  dup         ( kleisli1 may<a> may<a> )
+  is-just     ( kleisli1 may<a> ?just )
+  if          ( kleisli may<a> ) \ when may<a> is just
+    from-just ( kleisli a )
     swap      ( a kleisli )
     execute   ( maybe<b> )
-  else        ( kleisli a )
-    drop drop ( )
-    nothing   ( maybe<b> )    
+  else        ( kleisli nothing )
+    swap
+    drop      ( nothing )
   then
 ;
 
